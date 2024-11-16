@@ -1,14 +1,22 @@
 import pytest
+from easytest.config.config import Config
 from easytest.core.driver import Driver
-from easytest.core.actions import Actions
 
 @pytest.fixture(scope="session")
-def driver():
-    drv = Driver()
-    driver = drv.start_driver()
-    yield driver
-    drv.stop_driver()
+def config():
+    """
+    Предоставляет объект Config для тестов.
+    """
+    return Config()
 
-@pytest.fixture
-def actions(driver):
-    return Actions(driver)
+@pytest.fixture(scope="session")
+def driver(config):
+    """
+    Инициализирует драйвер Appium и завершает сессию после тестов.
+    """
+    desired_capabilities = config.get_desired_capabilities()
+    print("Инициализируем драйвер с параметрами:", desired_capabilities)  # Отладка
+
+    drv = Driver(desired_capabilities)
+    yield drv.driver
+    drv.driver.quit()

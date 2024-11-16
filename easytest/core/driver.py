@@ -1,35 +1,18 @@
 from appium import webdriver
-from appium.options.android import UiAutomator2Options
-from easytest.config.config import Config  # Предполагается, что Config находится в config.py
-import logging
+from appium.webdriver.common.appiumby import AppiumBy
+from appium.options.android import UiAutomator2Options  # Импортируем класс Options для Android
 
 class Driver:
-    def __init__(self):
-        self.driver = None
+    def __init__(self, desired_capabilities):
+        self.server_url = desired_capabilities["server_url"]
 
-    def start_driver(self):
-        # Загружаем конфигурацию
-        config = Config()  # Заданы platform="android", environment="local", mode="stage" по умолчанию
-        desired_caps = config.get_desired_capabilities()
-
-        if not desired_caps:
-            raise ValueError("Не удалось загрузить настройки из конфигурации. Проверьте JSON файл.")
-
-        logging.info(f"Запуск драйвера с параметрами: {desired_caps}")
-
-        # Устанавливаем параметры для UiAutomator2
+        # Создаем объект UiAutomator2Options
         options = UiAutomator2Options()
-        for key, value in desired_caps.items():
+        for key, value in desired_capabilities["capabilities"].items():
             options.set_capability(key, value)
 
-        # Инициализируем Appium драйвер с UiAutomator2Options
-        self.driver = webdriver.Remote(desired_caps["APPIUM_SERVER_URL"], options=options)
-
-        return self.driver
-
-    def stop_driver(self):
-        if self.driver:
-            self.driver.quit()
-
-
-
+        # Инициализируем драйвер Appium с использованием options
+        self.driver = webdriver.Remote(
+            command_executor=self.server_url,
+            options=options
+        )

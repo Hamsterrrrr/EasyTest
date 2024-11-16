@@ -1,11 +1,16 @@
 import logging
+import time
+from typing import Tuple, Union
 import allure
 from easytest.core.utils import take_screen, find_element
+from selenium.webdriver.remote.webelement import WebElement
+
 
 class Actions:
     def __init__(self, driver):
         self.driver = driver
-
+    
+    
     def scroll(self, direction='up', duration=800, steps=1):
         with allure.step(f"Прокрутка экрана в направлении: {direction}, длительность: {duration}, шаги: {steps}"):
             size = self.driver.get_window_size()
@@ -25,20 +30,21 @@ class Actions:
             for _ in range(steps):
                 self.driver.swipe(start_x, start_y, end_x, end_y, duration)
 
-    def click_element(self, locator, test_name, take_screenshot=True):
-        with allure.step(f"Клик по элементу с локатором {locator}"):
-            try:
-                take_screen(self.driver, test_name, 'init', take_screenshot)
-                element = find_element(self.driver, locator)
-                if element:
-                    take_screen(self.driver, test_name, 'before_click', take_screenshot)
-                    element.click()
-                    take_screen(self.driver, test_name, 'after_click', take_screenshot)
-                else:
-                    take_screen(self.driver, test_name, 'element_not_found', take_screenshot)
-            except Exception as ex:
-                logging.error(f"Ошибка в click_element: {ex}")
-                take_screen(self.driver, test_name, 'error', take_screenshot)
+    @allure.step("Клик по элементу")
+    def click_element(driver, locator: Union[str, Tuple[int, int]], test_name: str, screen_path: str = None):
+        
+        element = find_element(driver, locator, screen_path=screen_path)
+
+        if isinstance(element, tuple):  # Координаты
+            with allure.step(f"Клик по координатам {element}"):
+                driver.tap([element])
+                logging.info(f"Клик выполнен по координатам: {element}")
+        elif isinstance(element, WebElement):  # WebElement
+            with allure.step(f"Клик по WebElement {locator}"):
+                element.click()
+                logging.info(f"Клик выполнен по элементу: {locator}")
+        else:
+            raise ValueError(f"Элемент с локатором {locator} не найден.")
 
     def input_text(self, locator, input_text, test_name, take_screenshot=True):
         with allure.step(f"Ввод текста в элемент {locator}"):

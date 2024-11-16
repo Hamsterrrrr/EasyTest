@@ -1,4 +1,6 @@
-selenium==3.141.0
-Appium-Python-Client==1.2.0
-pytest==6.2.4
-allure-pytest==2.9.45
+pytest
+allure-pytest
+appium-python-client
+opencv-python
+pytesseract
+python-dotenv
