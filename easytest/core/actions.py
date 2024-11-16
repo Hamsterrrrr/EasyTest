@@ -4,12 +4,46 @@ from typing import Tuple, Union
 import allure
 from easytest.core.utils import take_screen, find_element
 from selenium.webdriver.remote.webelement import WebElement
+from easytest.visual.comparison import ImageComparator
 
 
 class Actions:
     def __init__(self, driver):
         self.driver = driver
-    
+        
+        
+    @allure.step("Ожидание исчезновения элемента")
+    def wait_for_element_to_disappear(self, template_path: str, timeout: int = 30, screen_path: str = "current_screen.png"):
+        start_time = time.time()
+        with allure.step(f"Ожидание исчезновения элемента: {template_path}"):
+            while time.time() - start_time < timeout:
+                # Сохраняем скриншот текущего экрана
+                self.driver.get_screenshot_as_file(screen_path)
+
+                # Проверяем, присутствует ли изображение
+                position = ImageComparator.find_template_on_screen(screen_path, template_path)
+                if position is None:
+                    logging.info(f"Элемент {template_path} исчез с экрана.")
+                    return True  # Изображение исчезло воля
+
+                logging.info(f"Элемент {template_path} все еще присутствует на экране, ждем...")
+                time.sleep(1)
+            raise TimeoutError(f"Элемент {template_path} не исчез за {timeout} секунд.")
+        
+    @allure.step("Ожидание появления элемента")
+    def wait_for_element_to_appear(self, template_path: str, timeout: int = 30, screen_path: str = "current_screen.png"):
+        start_time = time.time()
+        with allure.step(f"Ожидание появления элемента: {template_path}"):
+            while time.time() - start_time < timeout:
+                self.driver.get_screenshot_as_file(screen_path)
+                position = ImageComparator.find_template_on_screen(screen_path, template_path)
+                if position:
+                    logging.info(f"Элемент {template_path} появился на экране.")
+                    return True  # Элемент появился на экране
+                
+                logging.info(f"Элемент {template_path} все еще не присутствует на экране, ждем...")
+                time.sleep(1)
+            raise TimeoutError(f"Элемент {template_path} не появился за {timeout} секунд.")
     
     def scroll(self, direction='up', duration=800, steps=1):
         with allure.step(f"Прокрутка экрана в направлении: {direction}, длительность: {duration}, шаги: {steps}"):
@@ -31,20 +65,34 @@ class Actions:
                 self.driver.swipe(start_x, start_y, end_x, end_y, duration)
 
     @allure.step("Клик по элементу")
-    def click_element(driver, locator: Union[str, Tuple[int, int]], test_name: str, screen_path: str = None):
-        
-        element = find_element(driver, locator, screen_path=screen_path)
+    def click_element(self, locator, test_name, take_screenshot=True, screen_path="current_screen.png"):
+        try:
+            # Скриншот перед поиском элемента
+            take_screen(self.driver, test_name, 'init', take_screenshot)
 
-        if isinstance(element, tuple):  # Координаты
-            with allure.step(f"Клик по координатам {element}"):
-                driver.tap([element])
-                logging.info(f"Клик выполнен по координатам: {element}")
-        elif isinstance(element, WebElement):  # WebElement
-            with allure.step(f"Клик по WebElement {locator}"):
-                element.click()
-                logging.info(f"Клик выполнен по элементу: {locator}")
-        else:
-            raise ValueError(f"Элемент с локатором {locator} не найден.")
+            # Поиск элемента
+            element = find_element(self.driver, locator, screen_path=screen_path)
+
+            if isinstance(element, tuple):  # Если найдены координаты
+                take_screen(self.driver, test_name, 'before_tap', take_screenshot)
+                with allure.step(f"Клик по координатам {element}"):
+                    self.driver.tap([element])  # Выполняем клик по координатам
+                    logging.info(f"Клик выполнен по координатам: {element}")
+                take_screen(self.driver, test_name, 'after_tap', take_screenshot)
+            elif element:  # Если найден WebElement
+                take_screen(self.driver, test_name, 'before_click', take_screenshot)
+                with allure.step(f"Клик по WebElement {locator}"):
+                    element.click()  # Выполняем клик по WebElement
+                    logging.info(f"Клик выполнен по элементу: {locator}")
+                take_screen(self.driver, test_name, 'after_click', take_screenshot)
+            else:  # Элемент не найден
+                take_screen(self.driver, test_name, 'element_not_found', take_screenshot)
+                raise ValueError(f"Элемент с локатором {locator} не найден.")
+
+        except Exception as ex:
+            logging.error(f"Ошибка в click_element: {ex}")
+            take_screen(self.driver, test_name, 'error', take_screenshot)
+            raise
 
     def input_text(self, locator, input_text, test_name, take_screenshot=True):
         with allure.step(f"Ввод текста в элемент {locator}"):
